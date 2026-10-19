@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
+<title>Trading Advisory — Spot & Futures (Chỉ phân tích, không auto-trade)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0b0e14;color:#e6e8ec;line-height:1.5}
+header{background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);padding:22px 16px;text-align:center;border-bottom:2px solid #00e5a0}
+header h1{font-size:1.5rem}.green{color:#00e5a0}.red{color:#ff5c5c}.yellow{color:#ffcf4d}
+.wrap{max-width:1280px;margin:0 auto;padding:14px}
+.panel{background:#141a26;border:1px solid #232d42;border-radius:12px;padding:14px;margin-bottom:14px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+.ctrl{display:flex;flex-direction:column;gap:6px;min-width:140px;flex:1}
+.ctrl label{font-size:.8rem;color:#9aa4b2}
+.ctrl select,.ctrl input{background:#0b0e14;border:1px solid #2c3a55;color:#fff;padding:10px;border-radius:8px;font-size:.95rem}
+button{background:#00e5a0;color:#00251a;border:none;padding:11px 18px;border-radius:8px;font-weight:700;cursor:pointer}
+button:hover{filter:brightness(1.1)}
+button.ghost,.btn-ghost2{background:#232d42;color:#fff;padding:11px 18px;border-radius:8px;font-weight:700;cursor:pointer}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px}
+.kpi{background:#0b0e14;border:1px solid #232d42;border-radius:10px;padding:12px 8px;text-align:center}
+.kpi .v{font-size:1.05rem;font-weight:800}.kpi .l{font-size:.75rem;color:#9aa4b2}
+.grid2{display:grid;grid-template-columns:2fr 1fr;gap:14px}
+@media(max-width:900px){.grid2{grid-template-columns:1fr}}
+canvas{background:#0b0e14;border-radius:8px}
+.sig{padding:12px;border-radius:10px;font-weight:800;text-align:center;font-size:1.1rem;margin:8px 0}
+.buy{background:rgba(0,229,160,.15);color:#00e5a0;border:1px solid #00e5a0}
+.sell{background:rgba(255,92,92,.15);color:#ff5c5c;border:1px solid #ff5c5c}
+.neutral{background:rgba(255,207,77,.12);color:#ffcf4d;border:1px solid #ffcf4d}
+ul.rec{padding-left:18px;font-size:.92rem}ul.rec li{margin:6px 0}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{padding:8px;border-bottom:1px solid #232d42;text-align:left}
+th{color:#9aa4b2}.warnbox{background:rgba(255,92,92,.08);border-left:4px solid #ff5c5c;padding:12px;border-radius:0 8px 8px 0;font-size:.88rem}
+.safebox{background:rgba(0,229,160,.08);border-left:4px solid #00e5a0;padding:12px;border-radius:0 8px 8px 0;font-size:.88rem}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700}
+.b-low{background:#00e5a022;color:#00e5a0}.b-norm{background:#4da3ff22;color:#4da3ff}.b-high{background:#ffcf4d22;color:#ffcf4d}.b-ext{background:#ff5c5c22;color:#ff5c5c}
+.stamp{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;font-size:.78rem;color:#9aa4b2}
+.stamp span{background:#0b0e14;border:1px solid #232d42;border-radius:20px;padding:3px 10px}
+.stamp b{color:#e6e8ec}
+.score-table{width:100%;border-collapse:collapse;font-size:.84rem;margin-top:8px}
+.score-table th,.score-table td{padding:7px 8px;border-bottom:1px solid #232d42;text-align:left}
+.score-table th{color:#9aa4b2;font-size:.75rem;text-transform:uppercase}
+.pos{color:#00e5a0;font-weight:700}.neg{color:#ff5c5c;font-weight:700}.zero{color:#9aa4b2}
+.confbar{height:8px;background:#0b0e14;border:1px solid #232d42;border-radius:10px;overflow:hidden;margin-top:6px}
+.confbar i{display:block;height:100%;background:linear-gradient(90deg,#ffcf4d,#00e5a0)}
+.method{font-size:.8rem;color:#9aa4b2;background:#0b0e14;border:1px dashed #2c3a55;border-radius:8px;padding:10px;margin-top:10px}
+.method b{color:#e6e8ec}
+.news-item{border-bottom:1px solid #232d42;padding:9px 0;font-size:.86rem}
+.news-item:last-child{border-bottom:none}
+.news-item a{color:#4da3ff;text-decoration:none}
+.news-item a:hover{text-decoration:underline}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:.7rem;font-weight:700;margin-right:6px}
+.t-high{background:#ff5c5c22;color:#ff5c5c;border:1px solid #ff5c5c}
+.t-mid{background:#ffcf4d22;color:#ffcf4d;border:1px solid #ffcf4d}
+.t-low{background:#00e5a022;color:#00e5a0;border:1px solid #00e5a0}
+.t-sym{background:#4da3ff22;color:#4da3ff;border:1px solid #4da3ff}
+.fg-wrap{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.fg-dial{width:110px;height:62px;background:conic-gradient(from 270deg,#ff5c5c 0 25%,#ffcf4d 25% 50%,#4da3ff 50% 75%,#00e5a0 75% 100%);border-radius:110px 110px 8px 8px;position:relative;overflow:hidden;flex-shrink:0}
+.fg-needle{position:absolute;bottom:0;left:50%;width:3px;height:52px;background:#fff;transform-origin:bottom center;transition:transform .6s}
+/* ===== UX OPTIMIZED v1.2 ===== */
+.topbar{position:sticky;top:0;z-index:50;background:#0b0e14ee;backdrop-filter:blur(8px);border-bottom:1px solid #232d42;padding:10px 14px}
+.topbar-inner{max-width:1280px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.brand{font-weight:800;font-size:.95rem;white-space:nowrap}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{border:1px solid #2c3a55;background:#141a26;color:#e6e8ec;padding:8px 13px;border-radius:20px;font-size:.84rem;font-weight:700;cursor:pointer;min-height:38px}
+.pill.on{background:#00e5a0;color:#00251a;border-color:#00e5a0}
+.pill.iv.on{background:#4da3ff;border-color:#4da3ff;color:#00122b}
+.btn-big{background:#00e5a0;color:#00251a;border:none;padding:12px 20px;border-radius:10px;font-weight:800;cursor:pointer;font-size:.95rem;min-height:44px;min-width:150px}
+.btn-big:disabled{opacity:.6}
+.sections{display:flex;gap:8px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+.sections a{white-space:nowrap;font-size:.8rem;color:#9aa4b2;text-decoration:none;border:1px solid #232d42;border-radius:16px;padding:6px 12px;background:#141a26}
+.sections a:hover{color:#fff;border-color:#00e5a0}
+.kpi{padding:12px 8px}
+details.method{cursor:pointer}
+details.method summary{font-weight:700;color:#e6e8ec}
+.fab{position:fixed;bottom:18px;right:18px;z-index:60;background:#00e5a0;color:#00251a;border:none;border-radius:50px;padding:15px 22px;font-weight:800;font-size:1rem;box-shadow:0 8px 24px #000a;cursor:pointer;display:none}
+@media(max-width:900px){
+ .fab{display:block}
+ .topbar-inner{gap:8px}
+ .brand{width:100%}
+ .pill{padding:9px 14px;font-size:.88rem;min-height:42px}
+ .btn-big{flex:1}
+ .panel{padding:12px}
+ header{padding:14px 10px}
+ header h1{font-size:1.15rem}
+}
+footer{color:#9aa4b2;font-size:.8rem;text-align:center;padding:18px}
+</style>
+</head>
+<body>
+<header>
+<h1>📊 TRADING ADVISORY SYSTEM — <span class="green">SPOT</span> & <span class="yellow">FUTURES</span></h1>
+<div>Dự báo biến động • Phân tích • Khuyến nghị — <b>KHÔNG tự động trade</b></div>
+</header>
+<div class="topbar"><div class="topbar-inner">
+<div class="brand">📊 Advisory <span class="green">SPOT+FUT</span></div>
+<div class="pills" id="symPills"></div>
+<div class="pills" id="ivPills"></div>
+<button class="btn-big" id="btn">🔍 Phân tích</button>
+<button class="btn-ghost2" id="autoBtn">⏱ Auto: OFF</button>
+</div>
+<div class="topbar-inner"><nav class="sections">
+<a href="#sec-ket">🧠 Kết luận</a><a href="#sec-chart">📈 Chart</a><a href="#sec-vol">📐 Biến động</a><a href="#sec-news">📰 Tin tức</a><a href="#sec-plan">📌 Kế hoạch</a><a href="#sec-calc">🧮 Rủi ro</a>
+</nav></div>
+</div>
+<div class="wrap">
+
+<div class="panel" id="sec-ket">
+<div class="controls" style="display:none">
+<div class="ctrl"><label>Symbol</label>
+<select id="symbol">
+<option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option>
+<option>SOLUSDT</option><option>XRPUSDT</option><option>DOGEUSDT</option>
+<option>ADAUSDT</option><option>LINKUSDT</option><option>TONUSDT</option><option>ARBUSDT</option>
+</select></div>
+<div class="ctrl"><label>Khung thời gian</label>
+<select id="interval">
+<option value="15m">15m — Scalp / ngắn hạn</option>
+<option value="1h" selected>1h — Intraday</option>
+<option value="4h">4h — Swing ngắn</option>
+<option value="1d">1D — Dài hạn / Spot</option>
+</select></div>
+<div class="ctrl"><label>Số nến (60-500)</label><input id="limit" type="number" value="200" min="60" max="500"></div>
+</div>
+<div class="kpis" id="kpis"></div>
+<div class="stamp" id="stamp"></div>
+<div id="status" style="margin-top:8px;font-size:.85rem;color:#9aa4b2">Sẵn sàng.</div>
+</div>
+
+<div class="grid2" id="sec-chart">
+<div class="panel"><h3>📈 Giá + EMA20/50 + Bollinger</h3><div style="height:340px"><canvas id="priceChart"></canvas></div>
+<details class="method"><summary>ⓘ Cách đọc chart (bấm để xem)</summary>EMA seed bằng SMA để ổn định • BB = SMA20 ± 2×SD • Nến cuối là nến đang chạy nên EMA/RSI có thể repaint nhẹ — tem dữ liệu bên trên ghi giờ đóng nến.</details>
+</div>
+<div class="panel" id="sec-ket2">
+<h3>🧠 Kết luận tổng hợp</h3>
+<div id="overall" class="sig neutral">—</div>
+<div id="confLabel" style="font-size:.85rem"></div><div class="confbar"><i id="confBar" style="width:0%"></i></div>
+<div id="scores" style="font-size:.85rem"></div>
+<hr style="border-color:#232d42;margin:10px 0">
+<h4>🌐 Đa khung 1D / 4H / 1H <span id="mtfBadge" class="badge b-norm">—</span></h4>
+<div id="mtf" style="font-size:.85rem;margin-top:6px;color:#9aa4b2">Chưa có dữ liệu.</div>
+<hr style="border-color:#232d42;margin:10px 0">
+<h4>Chế độ biến động: <span id="volRegime" class="badge b-norm">—</span></h4>
+<div id="volDesc" style="font-size:.88rem;margin-top:8px"></div>
+<hr style="border-color:#232d42;margin:10px 0">
+<h4>⚠️ Cảnh báo Futures</h4><div id="futWarn" class="warnbox" style="margin-top:8px">—</div>
+</div>
+</div>
+
+<div class="grid2" id="sec-vol">
+<div class="panel"><h3>RSI(14) + MACD(12,26,9)</h3><div style="height:190px"><canvas id="rsiChart"></canvas></div><div style="height:190px;margin-top:10px"><canvas id="macdChart"></canvas></div>
+<details class="method"><summary>ⓘ Công thức điểm (bấm để xem)</summary><b>Công thức điểm (minh bạch):</b> Giá&gt;EMA20 +1 / &lt;EMA20 −1 • EMA20&gt;EMA50 +1 / ngược lại −1 • RSI&gt;55 +1 / &lt;45 −1 / còn lại 0 • MACD&gt;Signal +0.5 / ngược lại −0.5 • Phá BB ±0.5 • Funding&gt;+0.05% −0.5 / &lt;−0.05% +0.5. Tổng ≥2 LONG mạnh, ≥0.5 LONG nhẹ, ≤−2 SHORT mạnh, ≤−0.5 SHORT nhẹ, còn lại SIDEWAY.</details>
+</div>
+<div class="panel"><h3>📐 Dự báo biến động</h3>
+<table><tr><th>Chân trời</th><th>Biên độ kỳ vọng (±)</th><th>TP/SL gợi ý</th></tr><tbody id="volTable"></tbody></table>
+<div id="atrInfo" style="font-size:.85rem;margin-top:8px;color:#9aa4b2"></div>
+<h4 style="margin-top:10px">Basis / Funding / OI</h4><div id="deriv" style="font-size:.88rem"></div>
+<h4 style="margin-top:10px">📊 OI 12h + Funding 5 kỳ</h4><div id="oiBox" style="font-size:.86rem;color:#9aa4b2">Chưa có dữ liệu.</div>
+<canvas id="oiChart" height="110" style="height:110px;margin-top:8px"></canvas>
+<div class="method"><b>Công thức biến động:</b> ATR(14) Wilder, BB-width = (Upper−Lower)/Giá. HV năm = SD(log-return) × √{số nến/năm} (15m:35040, 1h:8760, 4h:2190, 1D:365). Biên độ n nến = ATR% × √n. SL tối thiểu = 1.2×ATR để tránh nhiễu, TP1 = 1.5×ATR, TP2 = 2.5×ATR.</div>
+</div>
+</div>
+
+<div class="panel" id="sec-news"><h3>📰 Tin tức & Sự kiện (bộ lọc rủi ro — không lái tín hiệu)</h3>
+<div class="fg-wrap"><div class="fg-dial"><div class="fg-needle" id="fgNeedle"></div></div>
+<div><div id="fgLabel" style="font-weight:800">Fear & Greed: —</div><div id="fgDesc" style="font-size:.82rem;color:#9aa4b2">Đang tải alternative.me...</div></div>
+<div style="margin-left:auto"><button class="ghost" id="newsBtn" style="padding:8px 14px">↻ Tải tin</button></div></div>
+<div id="newsList"><div class="news-item" style="color:#9aa4b2">Nhấn Phân tích để tải tin 24h + chấm rủi ro.</div></div>
+<div class="method"><b>Nguyên tắc:</b> Tin <b>không đảo</b> LONG/SHORT kỹ thuật — chỉ trừ <b>độ tin cậy</b> và thêm cảnh báo. Mỗi tin có nguồn + giờ + link gốc. RSS qua proxy + cache 10 phút; lỗi mạng thì hiện link gốc để bạn kiểm tra tay, không bịa headline.</div>
+</div>
+
+<div class="grid2" id="sec-plan">
+<div class="panel"><h3>📌 Kế hoạch Spot <button class="ghost" style="padding:4px 10px;font-size:.75rem" onclick="navigator.clipboard.writeText(document.getElementById('spotPlan').innerText);this.textContent='Đã copy!'">📋 Copy</button></h3><div id="spotPlan"><ul class="rec"><li>Nhấn phân tích để sinh kế hoạch.</li></ul></div></div>
+<div class="panel"><h3>📌 Kế hoạch Futures <button class="ghost" style="padding:4px 10px;font-size:.75rem" onclick="navigator.clipboard.writeText(document.getElementById('futPlan').innerText);this.textContent='Đã copy!'">📋 Copy</button></h3><div id="futPlan"><ul class="rec"><li>Nhấn phân tích để sinh kế hoạch.</li></ul></div></div>
+</div>
+
+<div class="grid2">
+<div class="panel"><h3>🧪 Backtest mini (200 nến, SL/TP 1.5×ATR)</h3><div id="btOut" style="font-size:.88rem;color:#9aa4b2">Nhấn Phân tích để chạy backtest.</div>
+<div class="method">Luật: LONG khi score≥0.5, SHORT khi score≤-0.5, đóng khi chạm SL/TP hoặc đảo tín hiệu. Không phí, không trượt giá — chỉ để kiểm tra tính ổn định của score, không bảo đảm tương lai.</div></div>
+<div class="panel"><h3>🗂️ Nhật ký tín hiệu (lưu máy bạn)</h3><div id="logOut" style="font-size:.86rem;color:#9aa4b2">Chưa có lịch sử.</div>
+<div style="display:flex;gap:8px;margin-top:8px"><button class="ghost" id="expBtn" style="padding:8px 12px">⬇ Xuất CSV</button><button class="ghost" id="clrBtn" style="padding:8px 12px">🗑 Xóa</button></div></div>
+</div>
+
+<div class="panel" id="sec-calc">
+<h3>🧮 Máy tính rủi ro Futures (không đặt lệnh, chỉ tính toán)</h3>
+<div class="controls">
+<div class="ctrl"><label>Vốn (USDT)</label><input id="acc" type="number" value="1000"></div>
+<div class="ctrl"><label>Risk/trade (%)</label><input id="riskPct" type="number" value="1" step="0.25"></div>
+<div class="ctrl"><label>Entry</label><input id="entry" type="number" step="any"></div>
+<div class="ctrl"><label>Stop-loss</label><input id="sl" type="number" step="any"></div>
+<div class="ctrl"><label>Take-profit</label><input id="tp" type="number" step="any"></div>
+<div class="ctrl"><label>Đòn bẩy (x)</label><input id="lev" type="number" value="5" min="1" max="125"></div>
+<div class="ctrl"><label>&nbsp;</label><button id="calcBtn">Tính</button></div>
+</div>
+<div id="calcOut" style="margin-top:10px;font-size:.9rem"></div>
+</div>
+
+<div class="panel safebox">✅ Hệ thống này <b>KHÔNG</b> kết nối API-key, <b>KHÔNG</b> đặt lệnh, <b>KHÔNG</b> auto-trade. Chỉ dùng dữ liệu công khai Binance (klines, funding, OI, premium) + chỉ báo kỹ thuật để đưa ra cảnh báo và kịch bản. Quyết định cuối cùng thuộc về bạn.</div>
+<div class="panel warnbox"><b>⚠️ Miễn trừ:</b> Đây không phải lời khuyên tài chính. Crypto spot & đặc biệt futures đòn bẩy rủi ro cháy tài khoản rất cao. Quá khứ không bảo đảm tương lai. Luôn dùng SL, chia vốn, đòn bẩy ≤5x nếu chưa chuyên.</div>
+</div>
+<footer>Trading Advisory v1.2-UX • Binance Public Data • EMA/RSI/MACD/BB/ATR chuẩn Wilder • Dành cho nghiên cứu</footer>
+<button class="fab" id="fabBtn">🔍 Phân tích</button>
+
+<script src="js/config.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/indicators.js"></script>
+<script src="js/market.js"></script>
+<script src="js/news.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
