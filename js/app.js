@@ -2,10 +2,14 @@
 // Depends on: CONFIG, utils, indicators, market, news, charts
 // Global error handler to surface errors in UI
 window.addEventListener("error", function (e) {
-  try { $("status").textContent = "❌ JS Error: " + (e.message || e.error) + " @ " + (e.filename || "") + ":" + (e.lineno || ""); } catch (ex) {}
+  var msg = "❌ JS Error: " + (e.message || e.error) + " @ " + (e.filename || "").split("/").pop() + ":" + (e.lineno || "");
+  try { $("status").textContent = msg; } catch (ex) {}
+  try { alert(msg); } catch (ex) {}
 });
 window.addEventListener("unhandledrejection", function (e) {
-  try { $("status").textContent = "❌ Promise Error: " + (e.reason && e.reason.message ? e.reason.message : e.reason); } catch (ex) {}
+  var msg = "❌ Promise Error: " + (e.reason && e.reason.message ? e.reason.message : e.reason);
+  try { $("status").textContent = msg; } catch (ex) {}
+  try { alert(msg); } catch (ex) {}
 });
 
 async function analyze() {
