@@ -74,52 +74,15 @@ function renderFG(fg) {
 
 async function loadNews(sym, base) {
   const listEl = $("newsList");
-  listEl.innerHTML = `<div class="news-item" style="color:#9aa4b2">Đang tải tin 24-48h...</div>`;
+  listEl.innerHTML = `<div class="news-item" style="color:#9aa4b2">Đang tải Fear & Greed...</div>`;
   const fg = await loadFG();
   const fgR = renderFG(fg);
-  let items = [];
-  try {
-    if (NEWS_CACHE.data && Date.now() - NEWS_CACHE.ts < CONFIG.NEWS_CACHE_TTL_MS && NEWS_CACHE.sym === sym) {
-      items = NEWS_CACHE.data;
-    } else {
-      // Nguồn CORS-friendly (CryptoCompare cho phép CORS, không cần proxy → hết lỗi đỏ Console)
-      const r = await fetchJSON("https://min-api.cryptocompare.com/data/v2/news/?lang=EN&sortOrder=top", 9000).catch(() => null);
-      const raw = r && r.data && r.data.Data ? r.data.Data : [];
-      items = raw.slice(0, 30).map(n => ({
-        src: n.source || "Crypto",
-        title: n.title || "",
-        link: n.url || n.guid || "#",
-        desc: (n.body || "").slice(0, 180),
-        pub: (n.published_on || Date.now() / 1000) * 1000,
-        currencies: (n.currencies || "").toUpperCase()
-      })).filter(x => x.title);
-      NEWS_CACHE.data = items; NEWS_CACHE.ts = Date.now(); NEWS_CACHE.sym = sym;
-    }
-  } catch (e) { items = []; }
-  if (!items.length) {
-    listEl.innerHTML = `<div class="news-item">⚠️ Không tải được tin (API bận). Kiểm tra tay:<br>
+  // Nguồn tin live (CryptoCompare/RSS) bị chặn CORS khi host trên GitHub Pages
+  // nên chỉ hiển thị link kiểm tra tay — tránh lỗi đỏ trong Console.
+  listEl.innerHTML = `<div class="news-item">📰 <b>Tin tức & rủi ro (kiểm tra tay trước khi mở futures):</b><br>
     • <a href="https://www.binance.com/en/support/announcement" target="_blank">Binance Announcements</a><br>
-    • <a href="https://www.coindesk.com/" target="_blank">CoinDesk</a> • <a href="https://cointelegraph.com/" target="_blank">CoinTelegraph</a><br>
-    • <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank">Fear & Greed</a></div>`;
-    return { pen: (fgR.pen || 0) + 4, warns: [fgR.warn, "🟡 Không tải được tin tức — tự kiểm tra Binance Announcements trước khi mở futures."].filter(Boolean) };
-  }
-  const rel = items.map(x => {
-    const s = scoreNews(x.title, x.desc + " " + (x.currencies || ""));
-    const hay = ((x.title + " " + x.desc + " " + (x.currencies || "")).toUpperCase());
-    const hitSym = hay.includes(base) || (x.currencies || "").split(",").map(s2 => s2.trim()).includes(base);
-    const fresh = (Date.now() - x.pub) < 48 * 3600 * 1000;
-    return { ...x, ...s, hitSym, fresh, effPen: (fresh ? (hitSym ? s.pen + 2 : s.pen) : Math.round(s.pen / 2)) };
-  }).sort((a, b) => (b.hitSym - a.hitSym) || (b.effPen - a.effPen) || (b.pub - a.pub)).slice(0, 8);
-  const totalPen = Math.min(20, rel.reduce((t, x) => t + x.effPen, 0) + (fgR.pen || 0));
-  listEl.innerHTML = rel.map(x => `<div class="news-item">
-    <span class="tag ${x.level === "HIGH" ? "t-high" : x.level === "MID" ? "t-mid" : "t-low"}">${x.level}</span>${x.hitSym ? `<span class="tag t-sym">${base}</span>` : ""}<b>${x.title}</b><br>
-    <span style="color:#9aa4b2">${x.src} • ${timeAgo(x.pub)} • từ khóa: ${x.tag} • ${x.desc}...</span><br>
-    <a href="${x.link}" target="_blank">Đọc gốc →</a></div>`).join("")
-    + `<div class="news-item" style="color:#9aa4b2">Nguồn: CryptoCompare API (CORS-friendly) + cache 10 phút. Tin chỉ trừ độ tin cậy, không đảo LONG/SHORT.</div>`;
-  const warns = [];
-  if (fgR.warn) warns.push(fgR.warn);
-  const highs = rel.filter(x => x.level === "HIGH" && x.fresh);
-  if (highs.length) warns.push(`🔴 ${highs.length} tin HIGH 48h qua (${highs[0].title.slice(0, 90)}...) — giảm nửa size futures hoặc đứng ngoài.`);
-  else if (rel.some(x => x.level === "MID" && x.fresh && x.hitSym)) warns.push(`🟡 Có tin MID liên quan ${base} trong 48h — chờ tin ngấm, SL rộng 1.5×ATR.`);
-  return { pen: totalPen, warns };
+    • <a href="https://www.coindesk.com/" target="_blank">CoinDesk</a> • <a href="https://cointelegraph.com/" target="_blank">CoinTelegraph</a> • <a href="https://decrypt.co/" target="_blank">Decrypt</a><br>
+    • <a href="https://alternative.me/crypto/fear-and-greed-index/" target="_blank">Fear & Greed Index</a></div>
+    <div class="news-item" style="color:#9aa4b2">Nguồn tin live bị chặn CORS trên GitHub Pages. Tin chỉ trừ độ tin cậy, không đảo LONG/SHORT. Fear & Greed đã tải bên trên.</div>`;
+  return { pen: (fgR.pen || 0) + 2, warns: [fgR.warn].filter(Boolean) };
 }
