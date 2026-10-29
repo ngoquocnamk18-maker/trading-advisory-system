@@ -1,6 +1,12 @@
 // ================= APP (analyze + UI wiring) =================
 // Depends on: CONFIG, utils, indicators, market, news, charts
-let autoTimer = null;
+// Global error handler to surface errors in UI
+window.addEventListener("error", function (e) {
+  try { $("status").textContent = "❌ JS Error: " + (e.message || e.error) + " @ " + (e.filename || "") + ":" + (e.lineno || ""); } catch (ex) {}
+});
+window.addEventListener("unhandledrejection", function (e) {
+  try { $("status").textContent = "❌ Promise Error: " + (e.reason && e.reason.message ? e.reason.message : e.reason); } catch (ex) {}
+});
 
 async function analyze() {
   const sym = $("symbol").value, itv = $("interval").value, lim = Math.min(500, Math.max(60, +$("limit").value || 200));
@@ -138,16 +144,18 @@ async function analyze() {
     $("mtf").innerHTML = `Khung ${itv}: <b>${curBias}</b> • ${mtfTxt}${mtfPen > 0 ? ` • <b style="color:#ffcf4d">trừ ${mtfPen}đ tin cậy</b>` : " • đồng thuận tốt"}`;
     $("volRegime").textContent = regime; $("volRegime").className = "badge " + cls; $("volDesc").textContent = desc;
 
-    const horizons = [
-      { n: "1 nến tới (" + itv + ")", k: 1 },
-      { n: "4 nến tới", k: 2 },
-      { n: "24h (~" + (itv === "1d" ? "1 nến" : itv === "4h" ? "6 nến" : itv === "1h" ? "24 nến" : "96 nến") + ")", k: Math.sqrt(CONFIG.STEPS_PER_DAY[itv]) },
-    ];
-    $("volTable").innerHTML = horizons.map(hh => {
-      const mv = atrPct * hh.k;
-      const upP = last * (1 + mv / 100), dnP = last * (1 - mv / 100);
-      return `<tr><td>${hh.n}</td><td>±${mv.toFixed(2)}%<br><span style="color:#9aa4b2">${fmtU(dnP)} — ${fmtU(upP)}</span></td><td>SL ≥ ${(mv * 1.2).toFixed(2)}% • TP ≥ ${(mv * 1.8).toFixed(2)}%</td></tr>`;
-    }).join("");
+    try {
+      const horizons = [
+        { n: "1 nến tới (" + itv + ")", k: 1 },
+        { n: "4 nến tới", k: 2 },
+        { n: "24h (~" + (itv === "1d" ? "1 nến" : itv === "4h" ? "6 nến" : itv === "1h" ? "24 nến" : "96 nến") + ")", k: Math.sqrt(CONFIG.STEPS_PER_DAY[itv]) },
+      ];
+      $("volTable").innerHTML = horizons.map(hh => {
+        const mv = atrPct * hh.k;
+        const upP = last * (1 + mv / 100), dnP = last * (1 - mv / 100);
+        return `<tr><td>${hh.n}</td><td>±${mv.toFixed(2)}%<br><span style="color:#9aa4b2">${fmtU(dnP)} — ${fmtU(upP)}</span></td><td>SL ≥ ${(mv * 1.2).toFixed(2)}% • TP ≥ ${(mv * 1.8).toFixed(2)}%</td></tr>`;
+      }).join("");
+    } catch (e) { $("status").textContent = "❌ Lỗi dự báo biến động: " + e.message; console.error("volTable error:", e); }
     $("atrInfo").textContent = `ATR=${fmtU(lastATR)} (${atrPct.toFixed(2)}%) • Công thức: SL=1.5×ATR, TP1=1.5×ATR, TP2=2.5×ATR, TP3=4×ATR. SL tối thiểu 1.2×ATR để tránh nhiễu.`;
     $("deriv").innerHTML = `Funding hiện tại: <b>${funding}</b> • TB 5 kỳ: <b>${derivHist.fundH.length ? fundAvg.toFixed(4) + "%" : "—"}</b> (${fundTrend}) • Basis: <b>${basis}</b> • OI: <b>${oi}</b> • L/S: <b>${lsr}</b><br><span style="color:#9aa4b2">Funding &gt;+0.05% + giá tăng = long FOMO, cảnh giác long-squeeze. Funding âm sâu = short đông, dễ hồi.</span>`;
     const oiDetail = (sq.n >= 6 && isFinite(sq.a) && isFinite(sq.b))
