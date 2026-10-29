@@ -5,7 +5,7 @@ let charts = {};
 function drawOI(oiH) {
   try {
     if (typeof Chart === "undefined") { $("oiBox").innerHTML += " (Chart.js chưa tải — kiểm tra mạng CDN)."; return; }
-    if (charts.oi) charts.oi.destroy();
+    if (charts.oi) { try { charts.oi.destroy(); } catch (e) {} }
     if (!oiH || !oiH.length) return;
     const labels = oiH.map(x => new Date(x.t).toLocaleString("vi-VN", { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }));
     const vals = oiH.map(x => x.c);
@@ -17,7 +17,8 @@ function drawOI(oiH) {
 
 function drawCharts(labels, c, e20, e50, up, lo, rsiA, mac) {
   if (typeof Chart === "undefined") { $("status").textContent += " | Chart.js chưa tải (CDN chặn) — số liệu vẫn hiện, chart trống."; return; }
-  for (const k of ["price", "rsi", "macd"]) { if (charts[k]) charts[k].destroy(); }
+  for (const k of ["price", "rsi", "macd"]) { if (charts[k]) { try { charts[k].destroy(); } catch (e) {} } }
+  try {
   charts.price = new Chart($("priceChart"), {
     type: "line", data: {
       labels, datasets: [
@@ -29,6 +30,11 @@ function drawCharts(labels, c, e20, e50, up, lo, rsiA, mac) {
       ]
     }, options: { responsive: true, maintainAspectRatio: false, interaction: { mode: "index", intersect: false }, plugins: { legend: { labels: { color: "#e6e8ec" } } }, scales: { x: { ticks: { color: "#9aa4b2", maxTicksLimit: 8 }, grid: { color: "#1a2233" } }, y: { ticks: { color: "#9aa4b2" }, grid: { color: "#1a2233" } } } }
   });
+  } catch (e) { console.error("price chart error:", e); $("status").textContent += " | Lỗi chart giá: " + e.message; }
+  try {
   charts.rsi = new Chart($("rsiChart"), { type: "line", data: { labels, datasets: [{ label: "RSI14", data: rsiA, borderColor: "#c792ea", pointRadius: 0, borderWidth: 1.5, spanGaps: true }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: "#e6e8ec" } } }, scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { color: "#9aa4b2" }, grid: { color: "#1a2233" } } } } });
+  } catch (e) { console.error("rsi chart error:", e); $("status").textContent += " | Lỗi RSI chart: " + e.message; }
+  try {
   charts.macd = new Chart($("macdChart"), { type: "bar", data: { labels, datasets: [{ type: "line", label: "MACD", data: mac.line, borderColor: "#00e5a0", pointRadius: 0, spanGaps: true }, { type: "line", label: "Signal", data: mac.signal, borderColor: "#ffcf4d", pointRadius: 0, spanGaps: true }, { label: "Hist", data: mac.hist, backgroundColor: "#4da3ff88" }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: "#e6e8ec" } } }, scales: { x: { display: false }, y: { ticks: { color: "#9aa4b2" }, grid: { color: "#1a2233" } } } } });
+  } catch (e) { console.error("macd chart error:", e); $("status").textContent += " | Lỗi MACD chart: " + e.message; }
 }
